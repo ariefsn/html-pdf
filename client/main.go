@@ -40,11 +40,11 @@ func main() {
 		var buff bytes.Buffer
 
 		query := r.URL.Query()
-		alias := query.Get("alias")  // get alias from query string if any
-		suffix := RandStringBytes(6) // create random suffix for file name
+		alias := query.Get("alias") // get alias from query string if any
+		t := time.Now()
+		suffix := t.Format("20060102150405")
 		if alias == "" {
-			t := time.Now()
-			alias = fmt.Sprintf("%s-%s", t.Format("20060102150405"), suffix)
+			alias = suffix
 		} else {
 			alias = fmt.Sprintf("%s-%s", alias, suffix)
 		}
