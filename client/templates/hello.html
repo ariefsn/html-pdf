@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hello Document</title>
+  <style>
+    body {
+      padding: 8px 24px;
+    }
+
+    .doc-title {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .company {
+      width: 100%;
+      display: flex;
+      justify-content: end;
+    }
+
+    .company .info {
+      font-size: 14px;
+      font-weight: bold;
+      text-align: right;
+      padding: 12px;
+      background-color: cadetblue;
+      border-radius: 8px;
+      color: white;
+    }
+
+    ul {
+      padding-inline-start: 0;
+      margin-block-start: 0;
+      margin-block-end: 0;
+      list-style-type: none;
+    }
+
+    .employee .label {
+      vertical-align: top;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="doc-title">
+    Employee Info
+  </h1>
+  <div class="company">
+    <div class="info">
+      <div>
+        {{ company.name }}
+      </div>
+      <div>
+        {{ company.address }}
+      </div>
+      <div>
+        {{ company.phone }}
+      </div>
+    </div>
+  </div>
+  <div class="employee">
+    <table>
+      <tbody>
+        <tr>
+          <td class="label">First Name</td>
+          <td class="value">{{ employee.firstName }}</td>
+        </tr>
+        <tr>
+          <td class="label">Last Name</td>
+          <td class="value">{{ employee.lastName }}</td>
+        </tr>
+        <tr>
+          <td class="label">Address</td>
+          <td class="value">{{ employee.address }}</td>
+        </tr>
+        <tr>
+          <td class="label">Contacts</td>
+          <td class="value">
+            <ul>
+              {{#each employee.contacts }}
+              <li>
+                <div>{{ this.name }}: {{ this.value }}</div>
+              </li>
+              {{/each}}
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

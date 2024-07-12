@@ -1,0 +1,33 @@
+version: '3'
+
+name: html-pdf
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: backend
+    environment:
+      - PORT=${PORT}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - QUEUE_URL=${QUEUE_URL}
+      - NODE_ENV=production
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    ports:
+      - "${PORT}:${PORT}"
+    restart: always
+    networks:
+      - html-pdf-network
+
+  nats:
+    image: nats
+    container_name: nats
+    mem_limit: 50m
+    restart: always
+    networks:
+      - html-pdf-network
+
+networks:
+  html-pdf-network:

@@ -1,0 +1,4 @@
+.env
+client/pdfs
+client/__debug_*
+.DS_Store
