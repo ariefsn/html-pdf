@@ -21,7 +21,6 @@ A mini service to generate PDF from HTML, uses Handlebars for parsing the HTML, 
 ## Notes
 
 - This service is using NATS, run NATS server locally or either with docker already in `compose/compose.yaml` file.
-- This service can talk with the client application using `WEBHOOK_URL`, it will hit the `WEBHOOK_URL` with method `POST` and the query `alias` if any, also the body is a PDF as a buffer.
 - The `client` directory is only the example how to interact with the service.
 
 ## Payload
@@ -37,3 +36,30 @@ A mini service to generate PDF from HTML, uses Handlebars for parsing the HTML, 
 | format | No | The format for generated PDF, should be one of `"letter" \| "legal" \| "tabloid" \| "ledger" \| "a0" \| "a1" \| "a2" \| "a3" \| "a4" \| "a5" \| "a6"`, this field will take over the `width` and `height`. |
 | width | No | Width of document. Ignored if `format` is filled. |
 | height | No | Height of document. Ignored if `format` is filled. |
+| webhookUrl | No | This service can talk with the client application using this, it will hit the URL with method `POST` and the query `alias` if any, also the body is a PDF as a buffer |
+
+## Registered Helper
+
+| Name | Arguments | Return |
+|------|-----------|--------|
+| add | `number, number` | `number` |
+| min | `number, number` | `number` |
+| mul | `number, number` | `number` |
+| div | `number, number` | `number` |
+| gt | `number, number` | `boolean` |
+| gte | `number, number` | `boolean` |
+| lt | `number, number` | `boolean` |
+| lte | `number, number` | `boolean` |
+| eq | `number, number` | `boolean` |
+| ne | `number, number` | `boolean` |
+| or | `boolean, boolean` | `boolean` |
+| and | `boolean, boolean` | `boolean` |
+| not | `boolean` | `boolean` |
+| contains | `string, string` | `boolean` |
+| startWith | `string, string` | `boolean` |
+| endWith | `string, string` | `boolean` |
+| replace | `string, string, string` | `string` |
+| json | `object` | `string` |
+| lower | `string` | `string` |
+| upper | `string` | `string` |
+| isEmpty | `any` | `boolean` |

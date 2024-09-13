@@ -19,6 +19,7 @@ export const pdfDtoSchema = z.object({
   format: z.enum(["letter", "legal", "tabloid", "ledger", "a0", "a1", "a2", "a3", "a4", "a5", "a6"]).optional(),
   width: z.string().optional(),
   height: z.string().optional(),
+  webhookUrl: z.string().optional(),
 }).superRefine((data, ctx) => {
   const buildHtmlError = (path: string, results: Result[]) => {
     ctx.addIssue({
@@ -57,7 +58,6 @@ export const pdfDtoSchema = z.object({
       buildHtmlError('footer', footerValidate.results)
     }
   }
-
 })
 
 

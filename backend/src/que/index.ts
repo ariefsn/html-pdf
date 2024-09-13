@@ -44,9 +44,7 @@ const startSub = async () => {
           const payload = msg.json<TPdfDto>()
           console.log('[NATS] Message Payload:', payload)
 
-          const { html, values, header, footer, margin, format, width, height } = payload;
-
-          const WEBHOOK_URL = process.env.WEBHOOK_URL;
+          const { html, values, header, footer, margin, format, width, height, webhookUrl } = payload;
 
           const start = Date.now()
           console.log('[PDF] Parsing HTML...')
@@ -81,7 +79,7 @@ const startSub = async () => {
           const renderingTime = Date.now() - start
           console.log('[PDF] Rendering PDF Done. ', getDeltaTime(renderingTime))
 
-          if (WEBHOOK_URL) {
+          if (webhookUrl) {
             let alias = ''
             if (payload.alias) {
               alias = payload.alias
@@ -89,7 +87,7 @@ const startSub = async () => {
                 alias = alias.slice(0, -4)
               }
             }
-            const url = WEBHOOK_URL + ('?alias=' + alias);
+            const url = webhookUrl + ('?alias=' + alias);
             console.log('[PDF] Send to Webhook: ' + url)
             fetch(url, {
               method: 'POST',

@@ -145,9 +145,10 @@ func main() {
 		}
 
 		payload := M{
-			"html":   tmpStr,
-			"values": values,
-			"alias":  fmt.Sprintf("%s_%s", values["employee"].(M)["firstName"].(string), values["employee"].(M)["lastName"].(string)),
+			"html":       tmpStr,
+			"values":     values,
+			"alias":      fmt.Sprintf("%s_%s", values["employee"].(M)["firstName"].(string), values["employee"].(M)["lastName"].(string)),
+			"webhookUrl": "http://localhost:3002",
 		}
 
 		jsonStr, err := json.Marshal(payload)

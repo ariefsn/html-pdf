@@ -6,6 +6,18 @@ handlebars.registerHelper('add', function (a: number, b: number) {
   return a + b
 })
 
+handlebars.registerHelper('sub', function (a: number, b: number) {
+  return a - b
+})
+
+handlebars.registerHelper('mul', function (a: number, b: number) {
+  return a * b
+})
+
+handlebars.registerHelper('div', function (a: number, b: number) {
+  return a / b
+})
+
 handlebars.registerHelper('gt', function (a: number, b: number) {
   return a > b
 })
@@ -60,6 +72,18 @@ handlebars.registerHelper('replace', function (val: string, search: string, repl
 
 handlebars.registerHelper('json', function (val: any) {
   return JSON.stringify(val)
+})
+
+handlebars.registerHelper('lower', function (val: string) {
+  return val.toLowerCase()
+})
+
+handlebars.registerHelper('upper', function (val: string) {
+  return val.toUpperCase()
+})
+
+handlebars.registerHelper('isEmpty', function (val: any) {
+  return ['', null, undefined].includes(val)
 })
 
 export {
