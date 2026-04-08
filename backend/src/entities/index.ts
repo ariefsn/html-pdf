@@ -7,20 +7,20 @@ const hv = new HtmlValidate()
 export const pdfDtoSchema = z.object({
   alias: z.string().optional(),
   html: z.string(),
-  header: z.string().optional(),
-  footer: z.string().optional(),
+  header: z.string().nullable().optional(),
+  footer: z.string().nullable().optional(),
   margin: z.object({
     top: z.string(),
     right: z.string(),
     bottom: z.string(),
     left: z.string(),
-  }).optional(),
-  values: z.record(z.any()).optional(),
+  }).nullable().optional(),
+  values: z.record(z.any()).nullable().optional(),
   format: z.enum(["letter", "legal", "tabloid", "ledger", "a0", "a1", "a2", "a3", "a4", "a5", "a6"]).optional(),
-  width: z.string().optional(),
-  height: z.string().optional(),
-  webhookUrl: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  width: z.string().nullable().optional(),
+  height: z.string().nullable().optional(),
+  webhookUrl: z.string().nullable().optional(),
+  metadata: z.record(z.any()).nullable().optional(),
 }).superRefine((data, ctx) => {
   const buildHtmlError = (path: string, results: Result[]) => {
     ctx.addIssue({
