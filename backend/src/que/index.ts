@@ -67,13 +67,13 @@ const startSub = async () => {
           });
           const pdf = await page.pdf({
             format: format as PaperFormat,
-            width: width,
-            height: height,
+            width: width ?? undefined,
+            height: height ?? undefined,
             printBackground: true,
-            headerTemplate: header,
-            footerTemplate: footer,
+            headerTemplate: header ?? undefined,
+            footerTemplate: footer ?? undefined,
             displayHeaderFooter: ((header ?? '') || (footer ?? '')).trim() ? true : false,
-            margin: margin,
+            margin: margin ?? undefined,
           });
           await browser.close();
 
