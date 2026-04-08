@@ -18,6 +18,16 @@ A mini service to generate PDF from HTML, uses Handlebars for parsing the HTML, 
 4. The swagger documentation is on path `/docs`.
 5. The main endpoint is `/pdf` with method `POST`, for the [payload](#payload) described below.
 
+## Tag Management
+
+Scripts to manage git tags for Docker image releases. Run from the `backend` directory.
+
+| Script | Usage | Description |
+|---|---|---|
+| `tag:delete` | `npm run tag:delete --tag=v1.0.0` | Delete tag from local and remote |
+| `tag:push` | `npm run tag:push --tag=v1.0.0` | Create and push a new tag |
+| `tag:repush` | `npm run tag:repush --tag=v1.0.0` | Delete existing tag and re-push (useful when a build fails) |
+
 ## Notes
 
 - This service is using NATS, run NATS server locally or either with docker already in `compose/compose.yaml` file.
@@ -36,7 +46,26 @@ A mini service to generate PDF from HTML, uses Handlebars for parsing the HTML, 
 | format | No | The format for generated PDF, should be one of `"letter" \| "legal" \| "tabloid" \| "ledger" \| "a0" \| "a1" \| "a2" \| "a3" \| "a4" \| "a5" \| "a6"`, this field will take over the `width` and `height`. |
 | width | No | Width of document. Ignored if `format` is filled. |
 | height | No | Height of document. Ignored if `format` is filled. |
-| webhookUrl | No | This service can talk with the client application using this, it will hit the URL with method `POST` and the query `alias` if any, also the body is a PDF as a buffer |
+| webhookUrl | No | URL to receive the generated PDF. The service will `POST` a JSON body containing `alias`, `metadata`, and `pdf` (base64-encoded). See [Webhook Payload](#webhook-payload) below. |
+| metadata | No | Arbitrary key-value object sent along with the webhook, so the receiver can identify/route the data (e.g. `{ "orderId": "123", "userId": "456" }`). |
+
+## Webhook Payload
+
+When `webhookUrl` is provided, the service will `POST` a JSON body to that URL:
+
+```json
+{
+  "alias": "my-document",
+  "metadata": { "orderId": "123", "userId": "456" },
+  "pdf": "<base64-encoded PDF>"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| alias | string | The filename alias (without `.pdf` extension). |
+| metadata | object | The metadata object from the original request (defaults to `{}`). |
+| pdf | string | The generated PDF file, base64-encoded. |
 
 ## Registered Helper
 

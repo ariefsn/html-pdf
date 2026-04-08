@@ -20,6 +20,7 @@ export const pdfDtoSchema = z.object({
   width: z.string().optional(),
   height: z.string().optional(),
   webhookUrl: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
 }).superRefine((data, ctx) => {
   const buildHtmlError = (path: string, results: Result[]) => {
     ctx.addIssue({

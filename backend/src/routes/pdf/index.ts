@@ -33,7 +33,7 @@ const pdf: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   }, async function (request, reply) {
     const jc = JSONCodec();
 
-    fastify.nats().publish('generate.pdf', jc.encode(request.body));
+    fastify.nats().publish(fastify.config.QUEUE_SUBJECT ?? 'generate.pdf', jc.encode(request.body));
 
     return reply.send(JsonOk('ok'))
   })

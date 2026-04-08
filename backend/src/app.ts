@@ -16,8 +16,9 @@ declare module 'fastify' {
   interface FastifyInstance {
     config: {
       PORT: string
-      WEBHOOK_URL: string
       QUEUE_URL: string
+      QUEUE_SUBJECT: string
+      QUEUE_SUBSCRIBE: string
     };
     nats: () => NatsConnection
   }
@@ -31,8 +32,9 @@ const envSchema = {
   required: ['QUEUE_URL'],
   properties: {
     PORT: { type: 'string', default: 3000 },
-    WEBHOOK_URL: { type: 'string' },
     QUEUE_URL: { type: 'string' },
+    QUEUE_SUBJECT: { type: 'string', default: 'generate.pdf' },
+    QUEUE_SUBSCRIBE: { type: 'string', default: 'generate.>' },
   },
 }
 

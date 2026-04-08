@@ -30,8 +30,9 @@ const natsClient = () => nc!
 const startSub = async () => {
   await initNats()
   const getDeltaTime = (time: number) => time + 'ms'
-  console.log('[NATS] Subscribing to generate.pdf...', nc?.info)
-  nc!.subscribe("generate.pdf", {
+  const subject = process.env.QUEUE_SUBSCRIBE || 'generate.>'
+  console.log(`[NATS] Subscribing to ${subject}...`, nc?.info)
+  nc!.subscribe(subject, {
     timeout: 60000,
     async callback(err, msg) {
       if (err) {
@@ -41,10 +42,10 @@ const startSub = async () => {
 
       if (msg) {
         try {
-          const payload = msg.json<TPdfDto>()
+          const payload = msg.json() as TPdfDto
           console.log('[NATS] Message Payload:', payload)
 
-          const { html, values, header, footer, margin, format, width, height, webhookUrl } = payload;
+          const { html, values, header, footer, margin, format, width, height, webhookUrl, metadata } = payload;
 
           const start = Date.now()
           console.log('[PDF] Parsing HTML...')
@@ -87,12 +88,16 @@ const startSub = async () => {
                 alias = alias.slice(0, -4)
               }
             }
-            const url = webhookUrl + ('?alias=' + alias);
-            console.log('[PDF] Send to Webhook: ' + url)
-            fetch(url, {
+            const webhookPayload = {
+              alias,
+              metadata: metadata ?? {},
+              pdf: Buffer.from(pdf.buffer).toString('base64'),
+            }
+            console.log('[PDF] Send to Webhook: ' + webhookUrl)
+            fetch(webhookUrl, {
               method: 'POST',
-              headers: {},
-              body: pdf.buffer,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(webhookPayload),
             })
           }
         } catch (error) {
@@ -101,68 +106,6 @@ const startSub = async () => {
       }
     },
   });
-  // (async () => {
-  //   for await (const msg of sub) {
-  //     try {
-  //       const payload = msg.json<TPdfDto>()
-
-  //       const { html, values, header, footer, margin, format, width, height } = payload;
-
-  //       const WEBHOOK_URL = process.env.WEBHOOK_URL;
-
-  //       const start = Date.now()
-  //       console.log('[PDF] Parsing HTML...')
-
-  //       const template = handlebars.compile(htmlUnescaped(html));
-  //       const htmlParsed = template(values);
-
-  //       const parsingTime = Date.now() - start
-  //       console.log('[PDF] Parsing HTML Done. Rendering PDF...', getDeltaTime(parsingTime))
-
-  //       const browser = await puppeteer.launch({
-  //         args: ['--no-sandbox', '--disable-gpu', '--disable-setuid-sandbox'],
-  //         timeout: 0,
-  //       });
-  //       const page = await browser.newPage();
-  //       await page.setContent(htmlParsed, {
-  //         waitUntil: 'networkidle2',
-  //       });
-  //       const pdf = await page.pdf({
-  //         format: format as PaperFormat,
-  //         width: width,
-  //         height: height,
-  //         printBackground: true,
-  //         headerTemplate: header,
-  //         footerTemplate: footer,
-  //         displayHeaderFooter: ((header ?? '') || (footer ?? '')).trim() ? true : false,
-  //         margin: margin,
-  //       });
-  //       await browser.close();
-
-  //       const renderingTime = Date.now() - start
-  //       console.log('[PDF] Rendering PDF Done. ', getDeltaTime(renderingTime))
-
-  //       if (WEBHOOK_URL) {
-  //         let alias = ''
-  //         if (payload.alias) {
-  //           alias = payload.alias
-  //           if (alias.endsWith('.pdf')) {
-  //             alias = alias.slice(0, -4)
-  //           }
-  //         }
-  //         const url = WEBHOOK_URL + ('?alias=' + alias);
-  //         console.log('[PDF] Send to Webhook: ' + url)
-  //         fetch(url, {
-  //           method: 'POST',
-  //           headers: {},
-  //           body: pdf.buffer,
-  //         })
-  //       }
-  //     } catch (error) {
-  //       console.log('[PDF] Error:', error)
-  //     }
-  //   }
-  // });
 }
 
 export { initNats, natsClient, startSub }
