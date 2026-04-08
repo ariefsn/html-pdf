@@ -20,13 +20,13 @@ A mini service to generate PDF from HTML, uses Handlebars for parsing the HTML, 
 
 ## Tag Management
 
-Scripts to manage git tags for Docker image releases. Run from the `backend` directory.
+Commands to manage git tags for Docker image releases.
 
-| Script | Usage | Description |
+| Command | Usage | Description |
 |---|---|---|
-| `tag:delete` | `npm run tag:delete --tag=v1.0.0` | Delete tag from local and remote |
-| `tag:push` | `npm run tag:push --tag=v1.0.0` | Create and push a new tag |
-| `tag:repush` | `npm run tag:repush --tag=v1.0.0` | Delete existing tag and re-push (useful when a build fails) |
+| `tag-delete` | `make tag-delete TAG=v1.0.0` | Delete tag from local and remote |
+| `tag-push` | `make tag-push TAG=v1.0.0` | Create and push a new tag |
+| `tag-repush` | `make tag-repush TAG=v1.0.0` | Delete existing tag and re-push (useful when a build fails) |
 
 ## Notes
 

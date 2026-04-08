@@ -15,10 +15,7 @@
     "watch:alias": "tsc-alias -w",
     "dev": "npm run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:watch:alias\" \"npm:dev:start\"",
     "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P dist/app.js",
-    "dev:start2": "node --experimental-specifier-resolution=node dist/app.js",
-    "tag:delete": "git tag -d $npm_config_tag && git push origin --delete $npm_config_tag",
-    "tag:push": "git tag $npm_config_tag && git push origin $npm_config_tag",
-    "tag:repush": "npm run tag:delete --tag=$npm_config_tag && npm run tag:push --tag=$npm_config_tag"
+    "dev:start2": "node --experimental-specifier-resolution=node dist/app.js"
   },
   "keywords": [],
   "author": "",
