@@ -4,16 +4,17 @@ FROM node:18-alpine AS base
 RUN apk add --no-cache libc6-compat g++ gcc libgcc
 
 # Install Chromium and fonts
-# Note: this installs the necessary libs to make the browser work with Puppeteer. The `base` will be uses in the future steps.
-RUN apk add chromium \
-  nss \
-  freetype \
-  harfbuzz \
-  ca-certificates \
-  ttf-freefont \
-  nodejs \
-  yarn \
-  rm -rf /var/cache/apk/*
+# Note: this installs the necessary libs to make the browser work with Puppeteer. The `base` will be used in the future steps.
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    nodejs \
+    yarn \
+  && rm -rf /var/cache/apk/*
 
 # 1. Install dependencies only when needed
 FROM base AS deps
