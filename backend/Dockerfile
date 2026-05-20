@@ -51,6 +51,11 @@ RUN yarn build:ts
 FROM base AS runner
 WORKDIR /app
 
+# tini reaps zombie children of Chromium so PIDs are freed promptly. Belt &
+# braces with compose `init: true`; this keeps the image safe under plain
+# `docker run` too.
+RUN apk add --no-cache tini
+
 RUN addgroup -g 1001 -S appgroup
 RUN adduser -S appuser -u 1001
 
@@ -62,4 +67,5 @@ USER appuser
 
 EXPOSE $PORT
 
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["yarn", "start"]

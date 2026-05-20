@@ -1,9 +1,44 @@
 import { TPdfDto } from "@src/entities"
 import { handlebars, htmlUnescaped } from "@src/helper"
 import { connect, NatsConnection } from "nats"
-import puppeteer, { PaperFormat } from "puppeteer"
+import puppeteer, { Browser, PaperFormat } from "puppeteer"
 
 let nc: NatsConnection | null = null
+
+// Module-level singleton so we launch Chromium once per process instead of
+// once per message. Per-request launch saturated the cgroup pids.max under
+// the engine's 20-retry receipt backoff and made posix_spawn return EAGAIN.
+let browserPromise: Promise<Browser> | null = null
+
+const getBrowser = (): Promise<Browser> => {
+  if (!browserPromise) {
+    browserPromise = puppeteer
+      .launch({
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? undefined,
+        args: [
+          '--no-sandbox',
+          '--headless',
+          '--disable-gpu',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+        ],
+      })
+      .then((b: Browser) => {
+        // Self-heal: if Chromium dies (OOM, pkill, etc.) drop the cached
+        // promise so the next call relaunches instead of awaiting forever.
+        b.on('disconnected', () => {
+          console.log('[PDF] Browser disconnected; will relaunch on next request.')
+          browserPromise = null
+        })
+        return b
+      })
+      .catch((err: unknown) => {
+        browserPromise = null
+        throw err
+      })
+  }
+  return browserPromise
+}
 
 const initNats = async () => {
   if (nc) {
@@ -56,26 +91,27 @@ const startSub = async () => {
           const parsingTime = Date.now() - start
           console.log('[PDF] Parsing HTML Done. Rendering PDF...', getDeltaTime(parsingTime))
 
-          const browser = await puppeteer.launch({
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? undefined,
-            args: ['--no-sandbox', '--headless', '--disable-gpu', '--disable-setuid-sandbox'],
-            // timeout: 0,
-          });
+          const browser = await getBrowser();
           const page = await browser.newPage();
-          await page.setContent(htmlParsed, {
-            waitUntil: 'networkidle2',
-          });
-          const pdf = await page.pdf({
-            format: format as PaperFormat,
-            width: width ?? undefined,
-            height: height ?? undefined,
-            printBackground: true,
-            headerTemplate: header ?? undefined,
-            footerTemplate: footer ?? undefined,
-            displayHeaderFooter: ((header ?? '') || (footer ?? '')).trim() ? true : false,
-            margin: margin ?? undefined,
-          });
-          await browser.close();
+          let pdf: Uint8Array
+          try {
+            await page.setContent(htmlParsed, {
+              waitUntil: 'networkidle2',
+            });
+            pdf = await page.pdf({
+              format: format as PaperFormat,
+              width: width ?? undefined,
+              height: height ?? undefined,
+              printBackground: true,
+              headerTemplate: header ?? undefined,
+              footerTemplate: footer ?? undefined,
+              displayHeaderFooter: ((header ?? '') || (footer ?? '')).trim() ? true : false,
+              margin: margin ?? undefined,
+            });
+          } finally {
+            // Tabs are cheap; never leak one. The browser singleton stays alive.
+            await page.close().catch(() => {})
+          }
 
           const renderingTime = Date.now() - start
           console.log('[PDF] Rendering PDF Done. ', getDeltaTime(renderingTime))
