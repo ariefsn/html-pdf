@@ -15,7 +15,6 @@ services:
       - QUEUE_SUBJECT=${QUEUE_SUBJECT}
       - QUEUE_SUBSCRIBE=${QUEUE_SUBSCRIBE}
       - NODE_ENV=production
-      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
     ports:
       - "${PORT}:${PORT}"
