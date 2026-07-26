@@ -18,6 +18,71 @@ A mini service to generate PDF from HTML, uses Handlebars for parsing the HTML, 
 4. The swagger documentation is on path `/docs`.
 5. The main endpoint is `/pdf` with method `POST`, for the [payload](#payload) described below.
 
+## Upgrading to v2
+
+v2.0.0 upgrades the whole dependency stack (Fastify 5, Zod 4, Puppeteer 25, html-validate 11) and moves the image to Node 22. There is **one breaking change to the API**, plus two operational requirements.
+
+### Breaking: the `details` array on 400 responses
+
+When a request fails validation the service still returns `400` with the same `success` / `data` / `message` / `details` envelope. Only the objects **inside** `details` changed, because the validation errors now arrive in Fastify's shape rather than Zod's.
+
+Before (v1.x):
+
+```json
+{
+  "success": false,
+  "data": null,
+  "message": "Invalid input",
+  "details": [
+    { "code": "invalid_type", "fatal": false, "message": "Required", "path": "html" }
+  ]
+}
+```
+
+After (v2.0.0):
+
+```json
+{
+  "success": false,
+  "data": null,
+  "message": "Invalid input",
+  "details": [
+    {
+      "keyword": "invalid_type",
+      "instancePath": "/html",
+      "schemaPath": "#/html/invalid_type",
+      "message": "Invalid input: expected string, received undefined",
+      "params": { "expected": "string" }
+    }
+  ]
+}
+```
+
+Field mapping:
+
+| v1.x | v2.0.0 | Note |
+|---|---|---|
+| `code` | `keyword` | Same values, e.g. `invalid_type`, `custom`. |
+| `path` | `instancePath` | Now a JSON-pointer style path: `html` becomes `/html`. |
+| `message` | `message` | Unchanged in meaning; Zod 4 wording is more descriptive. |
+| `fatal` | — | Removed. |
+| — | `schemaPath` | New. |
+| — | `params` | New; per-issue metadata, may be `{}`. |
+
+HTML validation errors are unaffected in content: they still arrive as `keyword: "custom"` with a message starting `Invalid HTML:`.
+
+**Only clients that read individual fields inside `details` need changing.** Anything checking `success`, `message`, or the HTTP status works as-is.
+
+### Node 22 required
+
+The image is now `node:22-alpine`. If you run the service outside Docker you need **Node >= 22.22.0** (this is html-validate 11's floor; Puppeteer 25 requires >= 22.12.0). This is enforced via `engines` in `package.json`.
+
+### Chromium is no longer downloaded at build time
+
+The Dockerfile sets `PUPPETEER_SKIP_DOWNLOAD=true` and points `PUPPETEER_EXECUTABLE_PATH` at the Alpine `chromium` package, so builds no longer pull a second ~170MB browser. The old `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD` variable in `compose/.env` was renamed away by Puppeteer v20 and had no effect; it has been removed. If you run outside Docker, either install Chrome and set `PUPPETEER_EXECUTABLE_PATH`, or install dependencies without `PUPPETEER_SKIP_DOWNLOAD` so Puppeteer fetches its own browser.
+
+`DISABLE_NATS=true` also exists now, but it is for the test suite only — it replaces the queue with a stub and must never be set in a deployment.
+
 ## Tag Management
 
 Commands to manage git tags for Docker image releases.

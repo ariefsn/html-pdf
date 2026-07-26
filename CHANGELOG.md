@@ -5,6 +5,42 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-07-26
+
+Dependency upgrade across the whole stack. See [Upgrading to v2](README.md#upgrading-to-v2) for migration steps.
+
+### Breaking Changes
+
+- The objects inside the `details` array of a `400` validation response changed shape. The type provider now hands Fastify-shaped validation errors to the error handler instead of raw Zod issues, so `{ code, fatal, message, path }` became `{ keyword, instancePath, schemaPath, message, params }`. `code` maps to `keyword`, `path` maps to `instancePath` (now JSON-pointer style, `html` → `/html`), and `fatal` is gone. The surrounding `success` / `data` / `message` envelope and the `400` status are unchanged, so only clients reading individual fields inside `details` are affected.
+- **Node >= 22.22.0 is now required** and enforced through `engines`. The Docker image moved from `node:18-alpine` (EOL) to `node:22-alpine`. The floor comes from html-validate 11; Puppeteer 25 requires >= 22.12.0.
+- `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD` was removed from `compose/.env`. Puppeteer renamed it in v20, so it had no effect, and skipping the download is an install-time concern handled in the Dockerfile via `PUPPETEER_SKIP_DOWNLOAD`.
+
+### Changed
+
+- Upgraded Fastify 4 → 5 with the whole plugin set (`@fastify/autoload` 6, `@fastify/env` 7, `@fastify/swagger` 9, `@fastify/swagger-ui` 6, `fastify-cli` 8, `fastify-plugin` 6), Zod 3 → 4 and `fastify-type-provider-zod` 2 → 7. These are peer-locked and had to move together.
+- Upgraded Puppeteer 22 → 25 and html-validate 8 → 11, plus `nats` 2.29.3, `handlebars` 4.7.9 and `@types/node` 22.
+- `page.setContent` now waits for `load` instead of `networkidle2`, which Puppeteer 25 no longer accepts there. Subresources are still awaited, so PDF fidelity is unaffected.
+- Plugin registration in `app.ts` is now awaited in explicit dependency order rather than relying on avvio's deferral for correctness.
+- Docker builds no longer download a Chromium the image never uses, and the runner sets `PUPPETEER_EXECUTABLE_PATH` so the image works under plain `docker run`.
+- Test runner moved from `ts-node/esm` to `tsx`, which resolves this project's extensionless directory imports.
+
+### Added
+
+- A working test suite: 14 tests covering the root route, `POST /pdf` validation including the HTML-validation path, and `parseQueueUrl`, plus an opt-in Chromium render smoke test behind `RUN_PDF_SMOKE`. Previously `npm test` could not compile.
+- `DISABLE_NATS=true` to build the app without a live broker. Test-only; never set it in a deployment.
+
+### Fixed
+
+- The webhook payload used `Buffer.from(pdf.buffer)`, which ignores the view's `byteOffset`/`byteLength` and would emit the whole backing buffer. Dormant under Puppeteer 22, which returns exactly-sized arrays, but not guaranteed under 25.
+- The error handler is registered before routes. With awaited registration it would otherwise sit on the root instance while routes live in an encapsulated child, so clients would receive Fastify's raw `FST_ERR_VALIDATION` body instead of the `JsonError` envelope.
+- `test/tsconfig.json` overrode `baseUrl`, breaking the `@src/*` path aliases and failing the typecheck with six errors.
+- The Dockerfile installed `nodejs` and `yarn` from apk on top of the Node base image, shadowing the base image's Node.
+- The `PORT` env schema declared `type: 'string'` with a numeric default.
+
+### Removed
+
+- Unused dependencies `@fastify/sensible` (registered but never called) and `@fastify/static` (no usages), the `plugins/support.ts` scaffolding, `c8`, `.taprc`, the `dev:start2` script (broken since Node 20), and dangling tsconfig path aliases.
+
 ## [1.2.0] - 2026-07-26
 
 ### Added
@@ -48,7 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Makefile targets for release tag management.
 - Example client in `client/`.
 
-[Unreleased]: https://github.com/ariefsn/html-pdf/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/ariefsn/html-pdf/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/ariefsn/html-pdf/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/ariefsn/html-pdf/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ariefsn/html-pdf/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ariefsn/html-pdf/releases/tag/v1.0.0
