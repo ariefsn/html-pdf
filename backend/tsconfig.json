@@ -9,10 +9,7 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "@src/*": ["src/*"],
-      "@helper": ["src/helper/index.ts"],
-      "@validator": ["src/validator/index.ts"],
-      "@types": ["src/types.ts"]
+      "@src/*": ["src/*"]
     },
     // "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
@@ -29,15 +26,5 @@
       "resolveJsonModule": true
     }
   },
-  // "ts-node": {
-  //   "esm": true,
-  //   "experimentalSpecifierResolution": "node",
-  //   "compilerOptions": {
-  //     "paths": {
-  //       "@/*": ["src/*"],
-  //       "@helper": ["src/helper/index.ts"],
-  //     }
-  //   }
-  // },
   "include": ["src/**/*.ts"]
 }

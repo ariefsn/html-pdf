@@ -1,10 +1,6 @@
-// import { DIRS, JsonError } from "@helper";
-// import { TMap } from "@types";
 import { JsonOk } from "@src/helper";
 import { FastifyPluginAsync } from "fastify";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
-// import fs from 'fs';
-// import path from 'path';
 import { pdfDtoSchema } from "@src/entities";
 import { JSONCodec } from 'nats';
 import { z } from "zod";
