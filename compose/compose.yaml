@@ -12,8 +12,11 @@ services:
       - PORT=${PORT}
       - WEBHOOK_URL=${WEBHOOK_URL}
       - QUEUE_URL=${QUEUE_URL}
-      - QUEUE_SUBJECT=${QUEUE_SUBJECT}
-      - QUEUE_SUBSCRIBE=${QUEUE_SUBSCRIBE}
+      # :- so an absent or empty value in .env falls back here. A bare
+      # ${QUEUE_SUBJECT} would pass an empty string, which overrides the
+      # app's own default and makes publishing fail with BAD_SUBJECT.
+      - QUEUE_SUBJECT=${QUEUE_SUBJECT:-generate.pdf}
+      - QUEUE_SUBSCRIBE=${QUEUE_SUBSCRIBE:-generate.>}
       - NODE_ENV=production
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
     ports:

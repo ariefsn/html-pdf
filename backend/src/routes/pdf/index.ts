@@ -18,7 +18,12 @@ const pdf: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   }, async function (request, reply) {
     const jc = JSONCodec();
 
-    fastify.nats().publish(fastify.config.QUEUE_SUBJECT ?? 'generate.pdf', jc.encode(request.body));
+    // `||` not `??`: an env var that is set but empty gets past both the
+    // schema default (which only fills missing keys) and a nullish check,
+    // and publishing to '' fails with BAD_SUBJECT.
+    const subject = fastify.config.QUEUE_SUBJECT || 'generate.pdf'
+
+    fastify.nats().publish(subject, jc.encode(request.body));
 
     return reply.send(JsonOk('ok'))
   })
