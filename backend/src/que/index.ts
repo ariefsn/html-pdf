@@ -210,8 +210,12 @@ const startSub = async () => {
           const page = await browser.newPage();
           let pdf: Uint8Array
           try {
+            // Puppeteer 25 excludes networkidle0/networkidle2 from
+            // setContent: with no navigation those heuristics were
+            // unreliable. 'load' still waits for subresources (images,
+            // stylesheets, fonts), which is what matters for PDF fidelity.
             await page.setContent(htmlParsed, {
-              waitUntil: 'networkidle2',
+              waitUntil: 'load',
             });
             pdf = await page.pdf({
               format: format as PaperFormat,

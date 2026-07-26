@@ -32,9 +32,9 @@
     "fastify-plugin": "^4.0.0",
     "fastify-type-provider-zod": "^2.0.0",
     "handlebars": "^4.7.9",
-    "html-validate": "^8.20.1",
+    "html-validate": "^11",
     "nats": "^2.29.3",
-    "puppeteer": "^22.13.0",
+    "puppeteer": "^25",
     "zod": "^3.23.8"
   },
   "devDependencies": {

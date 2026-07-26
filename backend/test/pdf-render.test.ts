@@ -23,7 +23,7 @@ test('renders a PDF', { skip: !process.env.RUN_PDF_SMOKE }, async () => {
     const page = await browser.newPage()
     await page.setContent(
       '<!DOCTYPE html><html lang="en"><head><title>t</title></head><body><h1>smoke</h1></body></html>',
-      { waitUntil: 'networkidle2' },
+      { waitUntil: 'load' },
     )
     const pdf = await page.pdf({ format: 'a4', printBackground: true })
 
