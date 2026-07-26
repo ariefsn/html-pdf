@@ -116,14 +116,27 @@ const app: FastifyPluginAsync<AppOptions> = async (
   })
 
   // Inject
-  void fastify.register(fastifyPlugin(async (fastify, opts) => {
-    await initNats()
-    fastify.decorate('nats', () => natsClient())
+  // Tests build the app via fastify.ready(), which drains the whole boot
+  // graph including the awaited initNats() below -- so without this gate
+  // they would need a live broker. Deliberately its own variable rather
+  // than NODE_ENV: compose already sets NODE_ENV=production, and an
+  // accidental NODE_ENV=test in a deployment must not disable the queue.
+  if (process.env.DISABLE_NATS !== 'true') {
+    void fastify.register(fastifyPlugin(async (fastify, opts) => {
+      await initNats()
+      fastify.decorate('nats', () => natsClient())
 
-    // Not awaited so boot isn't blocked, but a rejection must surface rather
-    // than becoming an unhandled promise rejection.
-    startSub().catch((err) => fastify.log.error(err)) // start subscription
-  }))
+      // Not awaited so boot isn't blocked, but a rejection must surface rather
+      // than becoming an unhandled promise rejection.
+      startSub().catch((err) => fastify.log.error(err)) // start subscription
+    }))
+  } else {
+    // Still decorate, so routes resolve and validation runs; only a request
+    // that passes validation reaches this and fails loudly.
+    fastify.decorate('nats', () => {
+      throw new Error('NATS disabled (DISABLE_NATS=true)')
+    })
+  }
 
   fastify.setValidatorCompiler(validatorCompiler)
   fastify.setSerializerCompiler(serializerCompiler)
