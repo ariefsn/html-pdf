@@ -8,7 +8,43 @@ on:
       - "v*"
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Pinned rather than '22': html-validate 11 needs >= 22.22.0, and a
+          # bare major could resolve to a runner image below that.
+          node-version: "22.22.0"
+          cache: yarn
+          cache-dependency-path: backend/yarn.lock
+
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
+        env:
+          # Chromium comes from the image at runtime; the PDF smoke test is
+          # opt-in, so CI needs no browser.
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+
+      - name: Typecheck and build
+        run: yarn build:ts
+
+      - name: Test
+        run: yarn test
+        env:
+          DISABLE_NATS: "true"
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
