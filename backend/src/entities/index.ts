@@ -63,3 +63,5 @@ export const pdfDtoSchema = z.object({
 
 
 export type TPdfDto = z.infer<typeof pdfDtoSchema>
+
+export { apiResponseSchema, responseDetailSchema } from './response'

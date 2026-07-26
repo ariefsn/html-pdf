@@ -1,7 +1,7 @@
+import { apiResponseSchema } from '@src/entities';
 import { JsonOk } from '@src/helper';
 import { FastifyPluginAsync } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 const root: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   const withZod = fastify.withTypeProvider<ZodTypeProvider>();
@@ -12,18 +12,7 @@ const root: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
       tags: ['APP'],
       summary: 'Ping endpoint',
       response: {
-        200: z.object({
-          success: z.boolean(),
-          data: z.string().nullable(),
-          message: z.string(),
-          details: z.array(z.object({
-            keyword: z.string(),
-            instancePath: z.string(),
-            schemaPath: z.string(),
-            message: z.string().optional(),
-            params: z.record(z.string(), z.any()).optional(),
-          })).optional().nullable(),
-        })
+        200: apiResponseSchema
       }
     }
   }, async function (request, reply) {
