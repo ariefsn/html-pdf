@@ -242,7 +242,10 @@ const startSub = async () => {
             const webhookPayload = {
               alias,
               metadata: metadata ?? {},
-              pdf: Buffer.from(pdf.buffer).toString('base64'),
+              // Buffer.from(pdf) respects byteOffset/byteLength; passing
+              // pdf.buffer would grab the whole backing ArrayBuffer, which
+              // is wrong whenever page.pdf() returns a view into a pool.
+              pdf: Buffer.from(pdf).toString('base64'),
             }
             const pdfSizeKb = Math.round((pdf.byteLength / 1024) * 10) / 10
             console.log(`[PDF] Send to Webhook: ${webhookUrl} (alias=${alias}, pdf=${pdfSizeKb}KB)`)

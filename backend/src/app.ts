@@ -31,7 +31,7 @@ const envSchema = {
   type: 'object',
   required: ['QUEUE_URL'],
   properties: {
-    PORT: { type: 'string', default: 3000 },
+    PORT: { type: 'string', default: '3000' },
     QUEUE_URL: { type: 'string' },
     QUEUE_SUBJECT: { type: 'string', default: 'generate.pdf' },
     QUEUE_SUBSCRIBE: { type: 'string', default: 'generate.>' },
