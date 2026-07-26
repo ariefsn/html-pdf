@@ -28,9 +28,56 @@ Commands to manage git tags for Docker image releases.
 | `tag-push` | `make tag-push TAG=v1.0.0` | Create and push a new tag |
 | `tag-repush` | `make tag-repush TAG=v1.0.0` | Delete existing tag and re-push (useful when a build fails) |
 
+## Environment Variables
+
+| Variable | Required | Default | Desc |
+|---|---|---|---|
+| `PORT` | No | `3000` | Port the HTTP server listens on. |
+| `QUEUE_URL` | Yes | — | NATS connection string. Carries credentials and TLS settings — see [Connecting to a protected NATS](#connecting-to-a-protected-nats). |
+| `QUEUE_SUBJECT` | No | `generate.pdf` | Subject the `/pdf` endpoint publishes jobs to. |
+| `QUEUE_SUBSCRIBE` | No | `generate.>` | Subject pattern the worker subscribes to. |
+
+## Connecting to a protected NATS
+
+Everything needed to reach an authenticated NATS server goes in `QUEUE_URL` — there are no separate username or password variables.
+
+```
+nats://[user:pass@|token@]host:port[,host:port...][?tls=true&tls_ca_file=…&tls_insecure=true]
+tls://…   # the tls:// scheme also enables TLS
+```
+
+| Example | Result |
+|---|---|
+| `nats://nats:4222` | no auth |
+| `nats://user:pass@nats:4222` | user/password |
+| `nats://sometoken@nats:4222` | token (userinfo with no password) |
+| `tls://user:pass@nats:4222` | user/password + TLS |
+| `nats://u:p@nats:4222?tls=true&tls_insecure=true` | TLS, skip verification (dev only) |
+| `tls://u:p@nats:4222?tls_ca_file=/certs/ca.pem` | TLS with a private CA |
+| `nats://user:pass@h1:4222,h2:4222` | cluster; credentials taken from the first entry |
+| `nats:4222` | no scheme — still works |
+
+**Special characters in a password must be percent-encoded**, exactly as in a Postgres or Redis connection string. For example `p@ss` becomes `p%40ss`, and `a,b` becomes `a%2Cb`. An unencoded `@` or `,` will be misread as a host separator.
+
+TLS query parameters:
+
+| Parameter | Desc |
+|---|---|
+| `tls` | `true` enables TLS using the system CA store. Implied by the `tls://` scheme. |
+| `tls_ca_file` | Path to a CA certificate, for a private/self-signed CA. |
+| `tls_cert_file` | Path to a client certificate, for mTLS. |
+| `tls_key_file` | Path to the client private key, for mTLS. |
+| `tls_insecure` | `true` skips certificate verification. Development only. |
+
+Notes:
+
+- Credentials in `QUEUE_URL` are parsed by **this service**. The underlying nats.js client ignores userinfo in a server URL on its own, so this syntax works here even though passing the same URL straight to the library would not authenticate.
+- NKey, JWT and `.creds` file authentication are not supported, so managed NATS (Synadia Cloud / NGS) will not work.
+- The connection log prints only host, port and the auth mode — a password is never written to the logs.
+
 ## Notes
 
-- This service is using NATS, run NATS server locally or either with docker already in `compose/compose.yaml` file.
+- This service is using NATS. Run a NATS server locally, or use the one in `compose/compose.yaml`. That bundled server is unauthenticated and intended for local development; point `QUEUE_URL` at your own server to use authentication.
 - The `client` directory is only the example how to interact with the service.
 
 ## Payload

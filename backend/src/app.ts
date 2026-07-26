@@ -131,7 +131,9 @@ const app: FastifyPluginAsync<AppOptions> = async (
     await initNats()
     fastify.decorate('nats', () => natsClient())
 
-    startSub() // start subscription
+    // Not awaited so boot isn't blocked, but a rejection must surface rather
+    // than becoming an unhandled promise rejection.
+    startSub().catch((err) => fastify.log.error(err)) // start subscription
   }))
 
   fastify.setValidatorCompiler(validatorCompiler)
