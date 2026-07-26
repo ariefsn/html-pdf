@@ -26,11 +26,14 @@ Dependency upgrade across the whole stack. See [Upgrading to v2](README.md#upgra
 
 ### Added
 
+- Opt-in `webhookFormat: "multipart"` on the request payload. The webhook then posts `multipart/form-data` with a `meta` JSON part and a raw `pdf` part instead of base64 inside JSON, cutting the body by roughly a quarter (measured: 26,023 → 19,827 bytes for the same document) and letting receivers stream to disk. `json` remains the default, so existing receivers are unaffected.
 - A working test suite: 14 tests covering the root route, `POST /pdf` validation including the HTML-validation path, and `parseQueueUrl`, plus an opt-in Chromium render smoke test behind `RUN_PDF_SMOKE`. Previously `npm test` could not compile.
 - `DISABLE_NATS=true` to build the app without a live broker. Test-only; never set it in a deployment.
 
 ### Fixed
 
+- The NATS subscription set `timeout: 60000`, which nats treats as "error this subscription once idle that long". The worker therefore stopped consuming after a quiet minute and logged `NatsError: TIMEOUT`. Removed, so it stays subscribed for the process lifetime.
+- The example client wrote the raw webhook body to disk, producing files that were the JSON envelope rather than a PDF. It now decodes both the base64 JSON and multipart formats, streams the multipart part straight to disk, names files from the envelope alias, and rejects malformed bodies with a 400.
 - The webhook payload used `Buffer.from(pdf.buffer)`, which ignores the view's `byteOffset`/`byteLength` and would emit the whole backing buffer. Dormant under Puppeteer 22, which returns exactly-sized arrays, but not guaranteed under 25.
 - The error handler is registered before routes. With awaited registration it would otherwise sit on the root instance while routes live in an encapsulated child, so clients would receive Fastify's raw `FST_ERR_VALIDATION` body instead of the `JsonError` envelope.
 - `test/tsconfig.json` overrode `baseUrl`, breaking the `@src/*` path aliases and failing the typecheck with six errors.

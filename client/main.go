@@ -2,11 +2,15 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,6 +19,69 @@ import (
 )
 
 type M map[string]interface{}
+
+func badRequest(w http.ResponseWriter, what string, err error) {
+	msg := what
+	if err != nil {
+		msg = fmt.Sprintf("%s: %v", what, err)
+	}
+	fmt.Println("[PDF] Bad request:", msg)
+	http.Error(w, msg, http.StatusBadRequest)
+}
+
+func serverError(w http.ResponseWriter, what string, err error) {
+	fmt.Printf("[PDF] Error: %s: %v\n", what, err)
+	http.Error(w, fmt.Sprintf("%s: %v", what, err), http.StatusInternalServerError)
+}
+
+// resolveAlias prefers the alias the service sent, so filenames line up with
+// the backend logs, then any ?alias= override, then a bare timestamp.
+func resolveAlias(envelope, query string) string {
+	suffix := time.Now().Format("20060102150405")
+
+	name := strings.TrimSpace(envelope)
+	if name == "" {
+		name = strings.TrimSpace(query)
+	}
+	if name == "" {
+		return suffix
+	}
+
+	// The alias arrives in a request body, so keep it to a bare filename --
+	// a "../" would otherwise let a webhook write outside pdfs/.
+	name = filepath.Base(name)
+	if name == "." || name == ".." || name == string(filepath.Separator) {
+		return suffix
+	}
+
+	return fmt.Sprintf("%s-%s", name, suffix)
+}
+
+func preparePath(alias string) (string, error) {
+	if _, err := os.Stat("pdfs"); os.IsNotExist(err) {
+		if err := os.Mkdir("pdfs", 0755); err != nil {
+			return "", err
+		}
+	}
+	return path.Join(".", "pdfs", alias+".pdf"), nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
+}
 
 func main() {
 	r := chi.NewRouter()
@@ -25,48 +92,125 @@ func main() {
 	})
 
 	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
-		var buff bytes.Buffer
+		// The service posts either a JSON envelope {alias, metadata, pdf} with
+		// the pdf base64-encoded, or -- when webhookFormat is "multipart" --
+		// a multipart body with a `meta` JSON part and a raw `pdf` part.
+		var pdfBytes []byte
+		var envelopeAlias string
+		contentType := r.Header.Get("Content-Type")
 
-		query := r.URL.Query()
-		alias := query.Get("alias") // get alias from query string if any
-		t := time.Now()
-		suffix := t.Format("20060102150405")
-		if alias == "" {
-			alias = suffix
-		} else {
-			alias = fmt.Sprintf("%s-%s", alias, suffix)
-		}
-
-		_, err := buff.ReadFrom(r.Body) // read request body as buffer
-
-		if err != nil {
-			fmt.Println("[PDF] Error:", err)
-			w.WriteHeader(500)
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		// check dir exists
-		if _, err := os.Stat("pdfs"); os.IsNotExist(err) {
-			err = os.Mkdir("pdfs", 0755)
+		if strings.HasPrefix(contentType, "multipart/") {
+			mr, err := r.MultipartReader()
 			if err != nil {
-				fmt.Println("[PDF] Error:", err)
-				w.WriteHeader(500)
-				w.Write([]byte(err.Error()))
+				badRequest(w, "read multipart", err)
 				return
 			}
-		}
 
-		filePath := path.Join(".", "pdfs", alias+".pdf") // prepare file path
+			// Stream the pdf part to a temp file instead of buffering it, so a
+			// large document never has to sit in memory.
+			tmp, err := os.CreateTemp("", "htmlpdf-*.pdf")
+			if err != nil {
+				serverError(w, "create temp file", err)
+				return
+			}
+			tmpName := tmp.Name()
+			defer os.Remove(tmpName)
 
-		err = os.WriteFile(filePath, buff.Bytes(), 0644) // write buffer to file
-		if err != nil {
-			fmt.Println("[PDF] Error:", err)
-			w.WriteHeader(500)
-			w.Write([]byte(err.Error()))
+			var written int64
+			for {
+				part, err := mr.NextPart()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					tmp.Close()
+					badRequest(w, "read part", err)
+					return
+				}
+
+				switch part.FormName() {
+				case "meta":
+					var meta struct {
+						Alias    string `json:"alias"`
+						Metadata M      `json:"metadata"`
+					}
+					if err := json.NewDecoder(part).Decode(&meta); err != nil {
+						part.Close()
+						tmp.Close()
+						badRequest(w, "decode meta", err)
+						return
+					}
+					envelopeAlias = meta.Alias
+				case "pdf":
+					written, err = io.Copy(tmp, part)
+					if err != nil {
+						part.Close()
+						tmp.Close()
+						badRequest(w, "read pdf part", err)
+						return
+					}
+				}
+				part.Close()
+			}
+			tmp.Close()
+
+			if written == 0 {
+				badRequest(w, "empty pdf part", nil)
+				return
+			}
+
+			alias := resolveAlias(envelopeAlias, r.URL.Query().Get("alias"))
+			filePath, err := preparePath(alias)
+			if err != nil {
+				serverError(w, "prepare path", err)
+				return
+			}
+			if err := os.Rename(tmpName, filePath); err != nil {
+				// Rename fails across filesystems; fall back to a copy.
+				if err := copyFile(tmpName, filePath); err != nil {
+					serverError(w, "save pdf", err)
+					return
+				}
+			}
+
+			fmt.Printf("[PDF] Saved %s (%d bytes, multipart)\n", filePath, written)
+			w.Write([]byte("PDF Generated! File Name: " + alias))
 			return
 		}
 
+		// Default: JSON envelope with a base64 pdf.
+		var payload struct {
+			Alias    string `json:"alias"`
+			Metadata M      `json:"metadata"`
+			PDF      string `json:"pdf"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			badRequest(w, "decode json body", err)
+			return
+		}
+		if payload.PDF == "" {
+			badRequest(w, "missing pdf field", nil)
+			return
+		}
+
+		pdfBytes, err := base64.StdEncoding.DecodeString(payload.PDF)
+		if err != nil {
+			badRequest(w, "decode base64 pdf", err)
+			return
+		}
+
+		alias := resolveAlias(payload.Alias, r.URL.Query().Get("alias"))
+		filePath, err := preparePath(alias)
+		if err != nil {
+			serverError(w, "prepare path", err)
+			return
+		}
+		if err := os.WriteFile(filePath, pdfBytes, 0644); err != nil {
+			serverError(w, "write pdf", err)
+			return
+		}
+
+		fmt.Printf("[PDF] Saved %s (%d bytes, json)\n", filePath, len(pdfBytes))
 		w.Write([]byte("PDF Generated! File Name: " + alias))
 	})
 
@@ -149,6 +293,12 @@ func main() {
 			"values":     values,
 			"alias":      fmt.Sprintf("%s_%s", values["employee"].(M)["firstName"].(string), values["employee"].(M)["lastName"].(string)),
 			"webhookUrl": "http://localhost:3002",
+		}
+
+		// ?format=multipart exercises the raw-bytes webhook instead of the
+		// default base64 JSON one.
+		if r.URL.Query().Get("format") == "multipart" {
+			payload["webhookFormat"] = "multipart"
 		}
 
 		jsonStr, err := json.Marshal(payload)
