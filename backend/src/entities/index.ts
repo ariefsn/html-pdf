@@ -20,6 +20,9 @@ export const pdfDtoSchema = z.object({
   width: z.string().nullable().optional(),
   height: z.string().nullable().optional(),
   webhookUrl: z.string().nullable().optional(),
+  // How the webhook body is encoded. Defaults to json; multipart sends the
+  // PDF as raw bytes instead of base64, avoiding ~33% of overhead.
+  webhookFormat: z.enum(['json', 'multipart']).nullable().optional(),
   metadata: z.record(z.string(), z.any()).nullable().optional(),
 }).superRefine((data, ctx) => {
   const buildHtmlError = (path: string, results: Result[]) => {

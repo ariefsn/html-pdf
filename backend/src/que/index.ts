@@ -182,8 +182,10 @@ const startSub = async () => {
   const subject = process.env.QUEUE_SUBSCRIBE || 'generate.>'
   const client = natsClient()
   console.log(`[NATS] Subscribing to ${subject}...`, client.info)
+  // No timeout: nats treats it as "error this subscription once idle that
+  // long", so the worker would stop consuming after a quiet minute and log
+  // NatsError: TIMEOUT. A queue worker stays subscribed for the process life.
   client.subscribe(subject, {
-    timeout: 60000,
     async callback(err, msg) {
       if (err) {
         console.log('[NATS] Error Callback:', err)
@@ -195,7 +197,7 @@ const startSub = async () => {
           const payload = msg.json() as TPdfDto
           console.log('[NATS] Message Payload:', payload)
 
-          const { html, values, header, footer, margin, format, width, height, webhookUrl, metadata } = payload;
+          const { html, values, header, footer, margin, format, width, height, webhookUrl, webhookFormat, metadata } = payload;
 
           const start = Date.now()
           console.log('[PDF] Parsing HTML...')
@@ -243,24 +245,49 @@ const startSub = async () => {
                 alias = alias.slice(0, -4)
               }
             }
-            const webhookPayload = {
-              alias,
-              metadata: metadata ?? {},
-              // Buffer.from(pdf) respects byteOffset/byteLength; passing
-              // pdf.buffer would grab the whole backing ArrayBuffer, which
-              // is wrong whenever page.pdf() returns a view into a pool.
-              pdf: Buffer.from(pdf).toString('base64'),
+            const asMultipart = webhookFormat === 'multipart'
+
+            // JSON is the default and stays byte-for-byte as before. Multipart
+            // is opt-in: it ships the PDF as raw bytes instead of base64,
+            // which drops ~33% off the request body.
+            let body: string | FormData
+            if (asMultipart) {
+              const form = new FormData()
+              form.append(
+                'meta',
+                new Blob([JSON.stringify({ alias, metadata: metadata ?? {} })], {
+                  type: 'application/json',
+                }),
+              )
+              form.append(
+                'pdf',
+                new Blob([Buffer.from(pdf)], { type: 'application/pdf' }),
+                `${alias || 'document'}.pdf`,
+              )
+              body = form
+            } else {
+              body = JSON.stringify({
+                alias,
+                metadata: metadata ?? {},
+                // Buffer.from(pdf) respects byteOffset/byteLength; passing
+                // pdf.buffer would grab the whole backing ArrayBuffer, which
+                // is wrong whenever page.pdf() returns a view into a pool.
+                pdf: Buffer.from(pdf).toString('base64'),
+              })
             }
+
             const pdfSizeKb = Math.round((pdf.byteLength / 1024) * 10) / 10
-            console.log(`[PDF] Send to Webhook: ${webhookUrl} (alias=${alias}, pdf=${pdfSizeKb}KB)`)
+            console.log(`[PDF] Send to Webhook: ${webhookUrl} (alias=${alias}, pdf=${pdfSizeKb}KB, format=${asMultipart ? 'multipart' : 'json'})`)
             // Await the response so failures surface in logs. Previously the
             // unhandled promise meant DNS errors / non-2xx responses vanished
             // and the receipt stayed in GENERATING forever.
             try {
               const resp = await fetch(webhookUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(webhookPayload),
+                // No Content-Type for multipart: undici has to generate the
+                // boundary itself, and setting the header suppresses that.
+                ...(asMultipart ? {} : { headers: { 'Content-Type': 'application/json' } }),
+                body,
               })
               if (!resp.ok) {
                 const text = await resp.text().catch(() => '')
