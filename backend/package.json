@@ -28,9 +28,9 @@
     "fastify-cli": "^6.1.1",
     "fastify-plugin": "^4.0.0",
     "fastify-type-provider-zod": "^2.0.0",
-    "handlebars": "^4.7.8",
+    "handlebars": "^4.7.9",
     "html-validate": "^8.20.1",
-    "nats": "^2.28.0",
+    "nats": "^2.29.3",
     "puppeteer": "^22.13.0",
     "zod": "^3.23.8"
   },
