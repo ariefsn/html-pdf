@@ -53,8 +53,26 @@ const app: FastifyPluginAsync<AppOptions> = async (
   fastify,
   opts
 ): Promise<void> => {
-  // Place here your custom code!
-  // Swagger
+  // Order below is deliberate and every step is awaited. Previously the
+  // registrations were fire-and-forget and only worked because avvio defers
+  // them past the synchronous compiler setup at the end of this function.
+  // Relying on that scheduling is fragile: if routes were ever built before
+  // the compilers were installed they would silently fall back to Ajv,
+  // ignoring the zod schemas and turning 400s into 500s.
+
+  // 1. Type provider compilers first -- they must precede any route
+  //    registration so routes compile against zod.
+  fastify.setValidatorCompiler(validatorCompiler)
+  fastify.setSerializerCompiler(serializerCompiler)
+
+  // 2. Env, so fastify.config exists for everything below.
+  await fastify.register(fastifyEnv, {
+    confKey: 'config',
+    schema: envSchema,
+  })
+  fastify.log.info(`Env Loaded`)
+
+  // 3. Swagger reads route schemas at ready(), so it needs the compilers.
   await fastify.register(swagger, {
     openapi: {
       openapi: '3.0.0',
@@ -99,30 +117,15 @@ const app: FastifyPluginAsync<AppOptions> = async (
     transformSpecificationClone: true
   })
 
-  // This loads all plugins defined in routes
-  // define your routes in one of these
-  void fastify.register(AutoLoad, {
-    dir: path.join(__dirname, 'routes'),
-    options: opts,
-    forceESM: true
-  })
-
-  // Env
-  void fastify.register(fastifyEnv, {
-    confKey: 'config',
-    schema: envSchema,
-  }).after(() => {
-    fastify.log.info(`Env Loaded`)
-  })
-
-  // Inject
-  // Tests build the app via fastify.ready(), which drains the whole boot
-  // graph including the awaited initNats() below -- so without this gate
-  // they would need a live broker. Deliberately its own variable rather
-  // than NODE_ENV: compose already sets NODE_ENV=production, and an
-  // accidental NODE_ENV=test in a deployment must not disable the queue.
+  // 4. NATS injection before routes, so `nats` is decorated by the time
+  //    route handlers close over the instance.
+  //    Tests build the app via fastify.ready(), which drains the whole boot
+  //    graph including the awaited initNats() -- so without this gate they
+  //    would need a live broker. Deliberately its own variable rather than
+  //    NODE_ENV: compose already sets NODE_ENV=production, and an accidental
+  //    NODE_ENV=test in a deployment must not disable the queue.
   if (process.env.DISABLE_NATS !== 'true') {
-    void fastify.register(fastifyPlugin(async (fastify, opts) => {
+    await fastify.register(fastifyPlugin(async (fastify) => {
       await initNats()
       fastify.decorate('nats', () => natsClient())
 
@@ -138,9 +141,11 @@ const app: FastifyPluginAsync<AppOptions> = async (
     })
   }
 
-  fastify.setValidatorCompiler(validatorCompiler)
-  fastify.setSerializerCompiler(serializerCompiler)
-
+  // 5. Error handler before routes. Registering it afterwards would leave
+  //    it on the root instance while the awaited AutoLoad below builds an
+  //    encapsulated child, so route errors would never reach it and clients
+  //    would get Fastify's raw FST_ERR_VALIDATION body instead of the
+  //    JsonError envelope.
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof ZodError) {
       let msg = 'Invalid input'
@@ -149,6 +154,13 @@ const app: FastifyPluginAsync<AppOptions> = async (
     }
 
     reply.send(error)
+  })
+
+  // 6. Routes last.
+  await fastify.register(AutoLoad, {
+    dir: path.join(__dirname, 'routes'),
+    options: opts,
+    forceESM: true
   })
 };
 
