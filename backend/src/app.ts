@@ -4,11 +4,15 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { FastifyPluginAsync } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
-import { jsonSchemaTransform, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import {
+  hasZodFastifySchemaValidationErrors,
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
 import { NatsConnection } from 'nats';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ZodError } from 'zod';
 import { JsonError } from './helper';
 import { initNats, natsClient, startSub } from './que';
 
@@ -147,9 +151,12 @@ const app: FastifyPluginAsync<AppOptions> = async (
   //    would get Fastify's raw FST_ERR_VALIDATION body instead of the
   //    JsonError envelope.
   fastify.setErrorHandler((error, request, reply) => {
-    if (error instanceof ZodError) {
-      let msg = 'Invalid input'
-      reply.status(400).send(JsonError(msg, error.issues))
+    // The type provider converts zod failures into Fastify's validation
+    // shape before they reach here, so a raw ZodError never arrives and an
+    // instanceof check would silently miss every one of them -- turning
+    // 400s into 500s.
+    if (hasZodFastifySchemaValidationErrors(error)) {
+      reply.status(400).send(JsonError('Invalid input', error.validation))
       return
     }
 

@@ -17,10 +17,11 @@ const root: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
           data: z.string().nullable(),
           message: z.string(),
           details: z.array(z.object({
-            code: z.string(),
-            fatal: z.boolean(),
-            message: z.string(),
-            path: z.string(),
+            keyword: z.string(),
+            instancePath: z.string(),
+            schemaPath: z.string(),
+            message: z.string().optional(),
+            params: z.record(z.string(), z.any()).optional(),
           })).optional().nullable(),
         })
       }

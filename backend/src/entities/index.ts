@@ -15,16 +15,16 @@ export const pdfDtoSchema = z.object({
     bottom: z.string(),
     left: z.string(),
   }).nullable().optional(),
-  values: z.record(z.any()).nullable().optional(),
+  values: z.record(z.string(), z.any()).nullable().optional(),
   format: z.enum(["letter", "legal", "tabloid", "ledger", "a0", "a1", "a2", "a3", "a4", "a5", "a6"]).optional(),
   width: z.string().nullable().optional(),
   height: z.string().nullable().optional(),
   webhookUrl: z.string().nullable().optional(),
-  metadata: z.record(z.any()).nullable().optional(),
+  metadata: z.record(z.string(), z.any()).nullable().optional(),
 }).superRefine((data, ctx) => {
   const buildHtmlError = (path: string, results: Result[]) => {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'Invalid HTML: ' + results.map(r => r.messages.map(m => m.message)).join(', '),
       path: [path],
     })
